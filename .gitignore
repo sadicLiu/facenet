@@ -92,4 +92,6 @@ ENV/
 
 # PyCharm project setting
 .idea
- 
+
+# Pretrained model
+model 
