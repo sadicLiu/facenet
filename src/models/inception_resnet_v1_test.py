@@ -10,6 +10,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
+import numpy as np
 
 
 # Inception-Resnet-A
@@ -160,6 +161,8 @@ def inception_resnet_v1(inputs, is_training=True,
     """
     end_points = {}
 
+    print("inputs shape: ", inputs.shape)   # (None, 160, 160, 3)
+
     with tf.variable_scope(scope, 'InceptionResnetV1', [inputs], reuse=reuse):
         with slim.arg_scope([slim.batch_norm, slim.dropout],
                             is_training=is_training):
@@ -193,6 +196,8 @@ def inception_resnet_v1(inputs, is_training=True,
                                   scope='Conv2d_4b_3x3')
                 end_points['Conv2d_4b_3x3'] = net
 
+                print("before inception shape: ", net.get_shape())  # (None, 17, 17, 256)
+
                 # 5 x Inception-resnet-A
                 net = slim.repeat(net, 5, block35, scale=0.17)
                 end_points['Mixed_5a'] = net
@@ -214,16 +219,21 @@ def inception_resnet_v1(inputs, is_training=True,
                 # 5 x Inception-Resnet-C
                 net = slim.repeat(net, 5, block8, scale=0.20)
                 end_points['Mixed_8a'] = net
-
+               
                 net = block8(net, activation_fn=None)
                 end_points['Mixed_8b'] = net
+
+                print("after inception shape: ", net.get_shape())   # (None, 3, 3, 1792)
 
                 with tf.variable_scope('Logits'):
                     end_points['PrePool'] = net
                     # pylint: disable=no-member
                     net = slim.avg_pool2d(net, net.get_shape()[1:3], padding='VALID',
                                           scope='AvgPool_1a_8x8')
+                    print("after avg pool shape: ", net.get_shape)  # (None, 1, 1, 1792)
+
                     net = slim.flatten(net)
+                    print("after flatten shape: ", net.get_shape()) # (None, 1792)
 
                     net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
                                        scope='Dropout')
@@ -232,5 +242,10 @@ def inception_resnet_v1(inputs, is_training=True,
 
                 net = slim.fully_connected(net, bottleneck_layer_size, activation_fn=None,
                                            scope='Bottleneck', reuse=False)
+                print("final logits shape: ", net.get_shape())  # (None, 128)
 
     return net, end_points
+
+if __name__ == '__main__':
+    with tf.Session() as sess:
+        inception_resnet_v1(np.ones([64, 160, 160, 3], dtype=np.float32))
