@@ -244,7 +244,26 @@ def inception_resnet_v1(inputs, is_training=True,
                                            scope='Bottleneck', reuse=False)
                 print("final logits shape: ", net.get_shape())  # (None, 128)
 
-    return net, end_points
+
+                logits = slim.fully_connected(net, 1024, activation_fn=None,
+                                              weights_initializer=slim.initializers.xavier_initializer(),
+                                              weights_regularizer=slim.l2_regularizer(0.0),
+                                              scope='Logits', reuse=False)
+                print("logits shape: ", logits.get_shape()) # (None, 1024)
+
+                # axis=1, 是把每行进行normalize, 每行是一个样本
+                embeddings = tf.nn.l2_normalize(net, 1, 1e-10, name='embeddings')
+                print("embeddings shape: ", embeddings.get_shape()) # (None, 128)
+
+                eps = 1e-4
+                prelogits_norm = tf.reduce_mean(tf.norm(tf.abs(net) + eps, ord=1.0, axis=1))
+                print("prelogits_norm shape: ", prelogits_norm)
+
+
+
+
+
+
 
 if __name__ == '__main__':
     with tf.Session() as sess:

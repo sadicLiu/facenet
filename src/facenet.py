@@ -45,6 +45,10 @@ def triplet_loss(anchor, positive, negative, alpha):
 def center_loss(features, label, alfa, nrof_classes):
     """Center loss based on the paper "A Discriminative Feature Learning Approach for Deep Face Recognition"
        (http://ydwen.github.io/papers/WenECCV16.pdf)
+
+       features <-> prelogits
+       nrof_classes <-> len(trainset)
+       nrof_features=128
     """
     nrof_features = features.get_shape()[1]
     centers = tf.get_variable('centers', [nrof_classes, nrof_features], dtype=tf.float32,
@@ -57,9 +61,10 @@ def center_loss(features, label, alfa, nrof_classes):
         loss = tf.reduce_mean(tf.square(features - centers_batch))
     return loss, centers
 
+
 # dataset中存储的是ImageClass对象,每个对象有image_paths和name两个属性
 # 因为dataset中的每个类是根据name排好序的,这里的label就是根据dataset中的顺序,每个对象以下标编号
-# 返回的这两个值是两个list,这两个list中的每个元素也是list
+# 返回的这两个值是两个list
 def get_image_paths_and_labels(dataset):
     image_paths_flat = []
     labels_flat = []
@@ -144,6 +149,7 @@ def _add_loss_summaries(total_loss):
     # Compute the moving average of all individual losses and the total loss.
     loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
     losses = tf.get_collection('losses')
+    # losses + [total_loss] -> [ce_loss, total_loss]
     loss_averages_op = loss_averages.apply(losses + [total_loss])
 
     # Attach a scalar summmary to all individual losses and the total loss; do the
@@ -157,6 +163,7 @@ def _add_loss_summaries(total_loss):
     return loss_averages_op
 
 
+# Build train op
 def train(total_loss, global_step, optimizer, learning_rate, moving_average_decay, update_gradient_vars,
           log_histograms=True):
     # Generate moving averages of all losses and associated summaries.
@@ -336,6 +343,7 @@ def get_dataset(path, has_class_directories=True):
 
     return dataset
 
+
 # 获取facedir路径下所有图片的完整路径
 def get_image_paths(facedir):
     image_paths = []
@@ -347,6 +355,7 @@ def get_image_paths(facedir):
 
 def split_dataset(dataset, split_ratio, min_nrof_images_per_class, mode):
     if mode == 'SPLIT_CLASSES':
+        # 这种模式是直接把数据集中的图片按类别划分的
         nrof_classes = len(dataset)
         class_indices = np.arange(nrof_classes)
         np.random.shuffle(class_indices)
@@ -354,6 +363,7 @@ def split_dataset(dataset, split_ratio, min_nrof_images_per_class, mode):
         train_set = [dataset[i] for i in class_indices[0:split]]
         test_set = [dataset[i] for i in class_indices[split:-1]]
     elif mode == 'SPLIT_IMAGES':
+        # 这种模式是将每个类别的所有图片分到训练集和测试集
         train_set = []
         test_set = []
         for cls in dataset:
@@ -436,12 +446,16 @@ def distance(embeddings1, embeddings2, distance_metric=0):
 
 def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_folds=10, distance_metric=0,
                   subtract_mean=False):
+    # embeddings1: pair中的第一张图片
+    # embeddings2: pair中的第二张图片
+    # thresholds: 画ROC曲线需要多个threshold
     assert (embeddings1.shape[0] == embeddings2.shape[0])
     assert (embeddings1.shape[1] == embeddings2.shape[1])
     nrof_pairs = min(len(actual_issame), embeddings1.shape[0])
     nrof_thresholds = len(thresholds)
     k_fold = KFold(n_splits=nrof_folds, shuffle=False)
 
+    # 对于tpr和fpr, 每个threshold都会计算出一个值
     tprs = np.zeros((nrof_folds, nrof_thresholds))
     fprs = np.zeros((nrof_folds, nrof_thresholds))
     accuracy = np.zeros((nrof_folds))
@@ -453,6 +467,8 @@ def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_fold
             mean = np.mean(np.concatenate([embeddings1[train_set], embeddings2[train_set]]), axis=0)
         else:
             mean = 0.0
+
+        # 计算每个pair中的两张图片的距离
         dist = distance(embeddings1 - mean, embeddings2 - mean, distance_metric)
 
         # Find the best threshold for the fold
@@ -460,6 +476,7 @@ def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_fold
         for threshold_idx, threshold in enumerate(thresholds):
             _, _, acc_train[threshold_idx] = calculate_accuracy(threshold, dist[train_set], actual_issame[train_set])
         best_threshold_index = np.argmax(acc_train)
+
         for threshold_idx, threshold in enumerate(thresholds):
             tprs[fold_idx, threshold_idx], fprs[fold_idx, threshold_idx], _ = calculate_accuracy(threshold,
                                                                                                  dist[test_set],

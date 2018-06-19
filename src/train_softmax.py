@@ -23,16 +23,28 @@ from tensorflow.python.ops import data_flow_ops
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 
+"""
+main: 整个模型的训练过程
+
+train: 一个epoch的训练过程
+validate: 在验证集上验证的过程
+evaluate: 使用训练好的模型提取特征,在lfw数据集上评估的过程
+
+save_variables_and_metagraph: 保存模型,每个epoch结束之后调用一次
+
+filter_dataset、find_threshold: 数据预处理时的一个操作,没细读,这个作者训练模型时候没用,args.filter_filename
+"""
 
 def main(args):
+    ### 数据预处理,路径问题等
     network = importlib.import_module(args.model_def)
     image_size = (args.image_size, args.image_size)
 
-    subdir = datetime.strftime(datetime.now(), '%Y%m%d-%H%M%S')     # '20180614-100359'
-    log_dir = os.path.join(os.path.expanduser(args.logs_base_dir), subdir)      # 本地保存log的路径
+    subdir = datetime.strftime(datetime.now(), '%Y%m%d-%H%M%S')  # '20180614-100359'
+    log_dir = os.path.join(os.path.expanduser(args.logs_base_dir), subdir)  # 本地保存log的路径
     if not os.path.isdir(log_dir):  # Create the log directory if it doesn't exist
         os.makedirs(log_dir)
-    model_dir = os.path.join(os.path.expanduser(args.models_base_dir), subdir)      # 本地保存model的路径,最后一层目录用上面生成的日期命名
+    model_dir = os.path.join(os.path.expanduser(args.models_base_dir), subdir)  # 本地保存model的路径,最后一层目录用上面生成的日期命名
     if not os.path.isdir(model_dir):  # Create the model directory if it doesn't exist
         os.makedirs(model_dir)
 
@@ -72,20 +84,25 @@ def main(args):
 
     if args.lfw_dir:
         print('LFW directory: %s' % args.lfw_dir)
-        # Read the file containing the pairs used for testing, default='data/pairs.txt'
+        # Read the file containing the pairs used for testing
         # pairs[0] = ['Abel_Pacheco', '1', '4']
+        # args.lfw_pairs: data/pairs.txt, 这个文件中每一行或有三个字段或有四个字段
+        # 如果有三个字段表示从一个人的所有图片中选择两个(正样本, actual_issame=True)
+        # 如果有四个字段表示从两个人的所有图片中各选一个(负样本, actual_issame=False)
         pairs = lfw.read_pairs(os.path.expanduser(args.lfw_pairs))
         # Get the paths for the corresponding images
-        # pairs里有些行是3个值,有些行是4个值,3个值的表示一个人的两张图片,issame=True,4个值的表示是两个人的图片,issame=False
         # lfw_paths里的每个值都是一个元组(path0, path1), actual_issame里对应的是这个元组是正样本还是副样本
         lfw_paths, actual_issame = lfw.get_paths(os.path.expanduser(args.lfw_dir), pairs)
 
-### 以上跟tensorflow没关系
+    ### 下面开始处理TensorFlow相关的东西
     with tf.Graph().as_default():
+
+        ### Input pipeline
         tf.set_random_seed(args.seed)
         global_step = tf.Variable(0, trainable=False)
 
         # Get a list of image paths and their labels
+        # 这两个list是训练集中的所有数据
         image_list, label_list = facenet.get_image_paths_and_labels(train_set)
         assert len(image_list) > 0, 'The training set should not be empty'
 
@@ -94,9 +111,10 @@ def main(args):
         # Create a queue that produces indices into the image_list and label_list 
         labels = ops.convert_to_tensor(label_list, dtype=tf.int32)
         range_size = array_ops.shape(labels)[0]
+        # num_epochs=None时,循环生成0到range_size-1的数
         index_queue = tf.train.range_input_producer(range_size, num_epochs=None,
                                                     shuffle=True, seed=None, capacity=32)
-
+        # 这个op是用来生成索引值的,每次从队列里取出一个epoch中所有图片数量的下标
         index_dequeue_op = index_queue.dequeue_many(args.batch_size * args.epoch_size, 'index_dequeue')
 
         learning_rate_placeholder = tf.placeholder(tf.float32, name='learning_rate')
@@ -129,24 +147,28 @@ def main(args):
 
         print('Building training graph')
 
-        # Build the inference graph
+        ### Build the inference graph
         # prelogits是128维的向量
         prelogits, _ = network.inference(image_batch, args.keep_probability,
                                          phase_train=phase_train_placeholder, bottleneck_layer_size=args.embedding_size,
                                          weight_decay=args.weight_decay)
+        # logits的shape: [None, len(train_set)]
         logits = slim.fully_connected(prelogits, len(train_set), activation_fn=None,
                                       weights_initializer=slim.initializers.xavier_initializer(),
                                       weights_regularizer=slim.l2_regularizer(args.weight_decay),
                                       scope='Logits', reuse=False)
 
+        # axis=1, 是把每行进行normalize, 每行是一个样本, 128维的向量
         embeddings = tf.nn.l2_normalize(prelogits, 1, 1e-10, name='embeddings')
 
         # Norm for the prelogits
         eps = 1e-4
         prelogits_norm = tf.reduce_mean(tf.norm(tf.abs(prelogits) + eps, ord=args.prelogits_norm_p, axis=1))
+        # 把prelogits进行norm操作得到的是一个数,这个数乘个weight作为loss的一部分,--prelogits_norm_loss_factor 5e-4
         tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, prelogits_norm * args.prelogits_norm_loss_factor)
 
-        # Add center loss
+        # Add center loss, 这个center loss作为正则化loss的一部分, 出自一篇人脸识别的论文, 先不管
+        # 这个loss默认权重是0, 文档中给出的训练脚本并没有用这个loss
         prelogits_center_loss, _ = facenet.center_loss(prelogits, label_batch, args.center_loss_alfa, nrof_classes)
         tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, prelogits_center_loss * args.center_loss_factor)
 
@@ -166,6 +188,7 @@ def main(args):
 
         # Calculate the total losses
         regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+        # 这个total_loss是ce和regular loss的和,应该是已经把所有loss的值都加起来了
         total_loss = tf.add_n([cross_entropy_mean] + regularization_losses, name='total_loss')
 
         # Build a Graph that trains the model with one batch of examples and updates the model parameters
@@ -178,7 +201,7 @@ def main(args):
         # Build the summary operation based on the TF collection of Summaries.
         summary_op = tf.summary.merge_all()
 
-        # Start running operations on the Graph.
+        ### Start running operations on the Graph.
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=args.gpu_memory_fraction)
         sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
         sess.run(tf.global_variables_initializer())
@@ -195,19 +218,27 @@ def main(args):
 
             # Training and validation loop
             print('Running training')
-            nrof_steps = args.max_nrof_epochs * args.epoch_size
+
+            # max_nrof_epochs: number of epochs to run, default=500
+            # epoch_size: number of batches per epoch,default=1000
+            nrof_steps = args.max_nrof_epochs * args.epoch_size  # total batch number
+
+            # 在验证集上验证的次数
             nrof_val_samples = int(math.ceil(
                 args.max_nrof_epochs / args.validate_every_n_epochs))  # Validate every validate_every_n_epochs as well as in the last epoch
             stat = {
+                # 每一个batch记录一次
                 'loss': np.zeros((nrof_steps,), np.float32),
                 'center_loss': np.zeros((nrof_steps,), np.float32),
                 'reg_loss': np.zeros((nrof_steps,), np.float32),
                 'xent_loss': np.zeros((nrof_steps,), np.float32),
                 'prelogits_norm': np.zeros((nrof_steps,), np.float32),
                 'accuracy': np.zeros((nrof_steps,), np.float32),
+                # 每验证一次记录一次
                 'val_loss': np.zeros((nrof_val_samples,), np.float32),
                 'val_xent_loss': np.zeros((nrof_val_samples,), np.float32),
                 'val_accuracy': np.zeros((nrof_val_samples,), np.float32),
+                # 每个epoch记录一次
                 'lfw_accuracy': np.zeros((args.max_nrof_epochs,), np.float32),
                 'lfw_valrate': np.zeros((args.max_nrof_epochs,), np.float32),
                 'learning_rate': np.zeros((args.max_nrof_epochs,), np.float32),
@@ -217,8 +248,8 @@ def main(args):
                 'prelogits_hist': np.zeros((args.max_nrof_epochs, 1000), np.float32),
             }
             for epoch in range(1, args.max_nrof_epochs + 1):
-                step = sess.run(global_step, feed_dict=None)
-                # Train for one epoch
+                step = sess.run(global_step, feed_dict=None)  # step = 0
+                ### Train for one epoch
                 t = time.time()
                 cont = train(args, sess, epoch, image_list, label_list, index_dequeue_op, enqueue_op,
                              image_paths_placeholder, labels_placeholder,
@@ -232,11 +263,15 @@ def main(args):
                 stat['time_train'][epoch - 1] = time.time() - t
 
                 if not cont:
+                    # 每次结束一轮训练,train函数返回True
                     break
 
+                ### validate on val_set
                 t = time.time()
-                if len(val_image_list) > 0 and ((
-                                                        epoch - 1) % args.validate_every_n_epochs == args.validate_every_n_epochs - 1 or epoch == args.max_nrof_epochs):
+                if len(val_image_list) > 0 and \
+                        ((
+                                 epoch - 1) % args.validate_every_n_epochs == args.validate_every_n_epochs - 1 or epoch == args.max_nrof_epochs):
+                    # 如果验证集不为空 并且 到了设置的每n个epoch验证一次或者到了最后一个epoch, 则进行一次验证
                     validate(args, sess, epoch, val_image_list, val_label_list, enqueue_op, image_paths_placeholder,
                              labels_placeholder, control_placeholder,
                              phase_train_placeholder, batch_size_placeholder,
@@ -247,25 +282,26 @@ def main(args):
                 # Save variables and the metagraph if it doesn't exist already
                 save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, epoch)
 
-                # Evaluate on LFW
+                ### Evaluate on LFW
                 t = time.time()
                 if args.lfw_dir:
                     evaluate(sess, enqueue_op, image_paths_placeholder, labels_placeholder, phase_train_placeholder,
                              batch_size_placeholder, control_placeholder,
-                             embeddings, label_batch, lfw_paths, actual_issame, args.lfw_batch_size,
                              args.lfw_nrof_folds, log_dir, step, summary_writer, stat, epoch,
+                             embeddings, label_batch, lfw_paths, actual_issame, args.lfw_batch_size,
                              args.lfw_distance_metric, args.lfw_subtract_mean, args.lfw_use_flipped_images,
                              args.use_fixed_image_standardization)
                 stat['time_evaluate'][epoch - 1] = time.time() - t
 
                 print('Saving statistics')
                 with h5py.File(stat_file_name, 'w') as f:
-                    for key, value in stat.iteritems():
+                    for key, value in stat.items():
                         f.create_dataset(key, data=value)
 
     return model_dir
 
 
+# filter_dataset里面用到的,没用
 def find_threshold(var, percentile):
     hist, bin_edges = np.histogram(var, 100)
     cdf = np.float32(np.cumsum(hist)) / np.sum(hist)
@@ -274,7 +310,7 @@ def find_threshold(var, percentile):
     threshold = np.interp(percentile * 0.01, cdf, bin_centers)
     return threshold
 
-
+# 没用到
 def filter_dataset(dataset, data_filename, percentile, min_nrof_images_per_class):
     with h5py.File(data_filename, 'r') as f:
         distance_to_center = np.array(f.get('distance_to_center'))
@@ -316,6 +352,7 @@ def train(args, sess, epoch, image_list, label_list, index_dequeue_op, enqueue_o
     if lr <= 0:
         return False
 
+    # 从队列里取出一个epoch的index
     index_epoch = sess.run(index_dequeue_op)
     label_epoch = np.array(label_list)[index_epoch]
     image_epoch = np.array(image_list)[index_epoch]
@@ -325,6 +362,7 @@ def train(args, sess, epoch, image_list, label_list, index_dequeue_op, enqueue_o
     image_paths_array = np.expand_dims(np.array(image_epoch), 1)
     control_value = facenet.RANDOM_ROTATE * random_rotate + facenet.RANDOM_CROP * random_crop + facenet.RANDOM_FLIP * random_flip + facenet.FIXED_STANDARDIZATION * use_fixed_image_standardization
     control_array = np.ones_like(labels_array) * control_value
+    # 将一个epoch的训练数据添加到队列当中
     sess.run(enqueue_op, {image_paths_placeholder: image_paths_array, labels_placeholder: labels_array,
                           control_placeholder: control_array})
 
@@ -337,6 +375,7 @@ def train(args, sess, epoch, image_list, label_list, index_dequeue_op, enqueue_o
         tensor_list = [loss, train_op, step, reg_losses, prelogits, cross_entropy_mean, learning_rate, prelogits_norm,
                        accuracy, prelogits_center_loss]
         if batch_number % 100 == 0:
+            # 每100个step才记录一次summary
             loss_, _, step_, reg_losses_, prelogits_, cross_entropy_mean_, lr_, prelogits_norm_, accuracy_, center_loss_, summary_str = sess.run(
                 tensor_list + [summary_op], feed_dict=feed_dict)
             summary_writer.add_summary(summary_str, global_step=step_)
@@ -353,7 +392,8 @@ def train(args, sess, epoch, image_list, label_list, index_dequeue_op, enqueue_o
         stat['learning_rate'][epoch - 1] = lr_
         stat['accuracy'][step_ - 1] = accuracy_
         stat['prelogits_hist'][epoch - 1, :] += \
-        np.histogram(np.minimum(np.abs(prelogits_), prelogits_hist_max), bins=1000, range=(0.0, prelogits_hist_max))[0]
+            np.histogram(np.minimum(np.abs(prelogits_), prelogits_hist_max), bins=1000,
+                         range=(0.0, prelogits_hist_max))[0]
 
         duration = time.time() - start_time
         print(
@@ -423,10 +463,11 @@ def evaluate(sess, enqueue_op, image_paths_placeholder, labels_placeholder, phas
     print('Runnning forward pass on LFW images')
 
     # Enqueue one epoch of image paths and labels
-    nrof_embeddings = len(actual_issame) * 2  # nrof_pairs * nrof_images_per_pair
+    nrof_embeddings = len(actual_issame) * 2  # nrof_pairs * nrof_images_per_pair, 图片总数, 一个pair里有两张图片
     nrof_flips = 2 if use_flipped_images else 1
     nrof_images = nrof_embeddings * nrof_flips
     labels_array = np.expand_dims(np.arange(0, nrof_images), 1)
+    # 如果进行了翻转,翻转后图片的路径和这张图片本身是一样的,image_paths_array: [image1, image1, image2, image2, ...]
     image_paths_array = np.expand_dims(np.repeat(np.array(image_paths), nrof_flips), 1)
     control_array = np.zeros_like(labels_array, np.int32)
     if use_fixed_image_standardization:
@@ -437,7 +478,7 @@ def evaluate(sess, enqueue_op, image_paths_placeholder, labels_placeholder, phas
     sess.run(enqueue_op, {image_paths_placeholder: image_paths_array, labels_placeholder: labels_array,
                           control_placeholder: control_array})
 
-    embedding_size = int(embeddings.get_shape()[1])
+    embedding_size = int(embeddings.get_shape()[1])  # 128
     assert nrof_images % batch_size == 0, 'The number of LFW images must be an integer multiple of the LFW batch size'
     nrof_batches = nrof_images // batch_size
     emb_array = np.zeros((nrof_images, embedding_size))
@@ -451,6 +492,8 @@ def evaluate(sess, enqueue_op, image_paths_placeholder, labels_placeholder, phas
             print('.', end='')
             sys.stdout.flush()
     print('')
+
+    # 如果使用了图片翻转, embedding是将原图和翻转图的两个向量直接拼起来
     embeddings = np.zeros((nrof_embeddings, embedding_size * nrof_flips))
     if use_flipped_images:
         # Concatenate embeddings for flipped and non flipped version of the images
@@ -461,6 +504,10 @@ def evaluate(sess, enqueue_op, image_paths_placeholder, labels_placeholder, phas
 
     assert np.array_equal(lab_array, np.arange(
         nrof_images)) == True, 'Wrong labels used for evaluation, possibly caused by training examples left in the input pipeline'
+
+    # 直接用训练好的模型提取特征, 然后调用lfw的evaluate方法
+    # distance_metric 0: Euclidian, 1:Cosine similarity distance.
+    # 现在的embeddings是256维的向量(如果用了filp),每个pair里有两张图片,所以embedings第一维应该是偶数
     _, _, accuracy, val, val_std, far = lfw.evaluate(embeddings, actual_issame, nrof_folds=nrof_folds,
                                                      distance_metric=distance_metric, subtract_mean=subtract_mean)
 

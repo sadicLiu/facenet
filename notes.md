@@ -186,6 +186,14 @@
     ```
     python src/classifier.py TRAIN /home/david/datasets/lfw/lfw_mtcnnalign_160 /home/david/models/model-20170216-091149.pb ~/models/lfw_classifier.pkl --batch_size 1000 --min_nrof_images_per_class 40 --nrof_train_images_per_class 35 --use_split_dataset
     ```
+    - mode=TRAIN
+    - data_dir=/home/david/datasets/lfw/lfw_mtcnnalign_160
+    - model=/home/david/models/model-20170216-091149.pb
+    - classifier_filename=~/models/lfw_classifier.pkl
+    - --batch_size 1000 
+    - --min_nrof_images_per_class 40
+    - --nrof_train_images_per_class 35
+    - --use_split_dataset
 
 - Start testing
 
@@ -212,3 +220,15 @@
 
     1. Include face detection in a face detection and classification pipe line
     2. Use a threshold for the classification probability to find unknown people instead of just using the class with the highest probability
+
+## Questions
+
+- 01
+    ```
+    Q: 这个训练好的模型是如何应用到其他数据集的(看evaluation的代码)
+    A: 直接用训练好的模型提取特征 -> 调用 `lfw.evaluate` -> 内部调用 `facenet.calculate_roc` 和 `facenet.calculate_val`
+    ```
+
+
+2. 代码中使用pretrained model的过程
+3. 1:1 1:N 的过程
