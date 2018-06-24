@@ -17,7 +17,7 @@
 │   ├── learning_rate_schedule_classifier_casia.txt
 │   ├── learning_rate_schedule_classifier_msceleb.txt
 │   ├── learning_rate_schedule_classifier_vggface2.txt
-│   └── pairs.txt   // lfw数据集的pairs,在validate_on_lfw.py中用到了
+│   └── pairs.txt   // lfw数据集的pairs,这里面是选出来的一些正负样本的pair,主要是用在验证模型准确率
 ├── __init__.py
 ├── LICENSE.md
 ├── notes.md
@@ -26,18 +26,18 @@
 ├── src
 │   ├── align
 │   ├── calculate_filtering_metrics.py
-│   ├── classifier.py
-│   ├── compare.py
+│   ├── classifier.py   // 用已经训练好的模型提取特征,训练自己的人脸分类器
+│   ├── compare.py      // 比较多张给出的图片的欧氏距离
 │   ├── decode_msceleb_dataset.py
 │   ├── download_and_extract.py
-│   ├── facenet.py
-│   ├── freeze_graph.py
+│   ├── facenet.py      
+│   ├── freeze_graph.py // 将训练好的模型中的变量变为常量,速度更快
 │   ├── generative
 │   ├── __init__.py
 │   ├── lfw.py
-│   ├── models
+│   ├── models      // cnn分类模型结构定义
 │   ├── __pycache__
-│   ├── train_softmax.py
+│   ├── train_softmax.py    // 使用softmax训练人脸识别模型
 │   ├── train_tripletloss.py
 │   └── validate_on_lfw.py
 ├── s.txt
@@ -129,9 +129,9 @@
 - Face alignment
 
     ```
-    python src/align/align_dataset_mtcnn.py \
-    ~/datasets/casia/CASIA-maxpy-clean/ \
-    ~/datasets/casia/casia_maxpy_mtcnnpy_182 \
+    python align_dataset_mtcnn.py \
+    ~/Data/datasets/cow_face/raw/ \
+    ~/Data/datasets/cow_face/align \
     --image_size 182 \
     --margin 44
     ```
@@ -230,5 +230,24 @@
     ```
 
 
-2. 代码中使用pretrained model的过程
-3. 1:1 1:N 的过程
+- 02
+    ```
+    Q: 代码中使用pretrained model的过程
+    A: saver.restore(sess, pretrained_model_path)
+    ```
+- 03
+    ```
+    Q: 1:1 1:N 的过程
+    A: 牛脸识别中只用到了1:1,1:N是先把模型训练好,然后每张图片提取特征并保存,进行识别时,提取要识别的图像特征,计算这个特征和已经存储的所有特征的欧氏距离
+    ```
+
+## TODO
+
+1. 在lfw数据集上验证人脸识别模型
+2. 找一下牛脸数据和模型,同样用pairs模型验证一下
+3. FFmpeg了解一下
+
+4. 两个验证的数据集准确率差不多,但是validation rate差很多, 为什么
+5. 人脸的验证数据模型之前没见过,牛脸的验证数据模型之前都见过
+
+compare的阈值是如何确定的,两个embeding距离是多少认为是同一个人?

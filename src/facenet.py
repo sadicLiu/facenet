@@ -427,6 +427,8 @@ def get_model_filenames(model_dir):
     return meta_file, ckpt_file
 
 
+# embeddings1是pair0, embedings2是pair1
+# 返回的dist是每个pair中两张图片的距离
 def distance(embeddings1, embeddings2, distance_metric=0):
     if distance_metric == 0:
         # Euclidian distance
@@ -491,9 +493,13 @@ def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_fold
 
 
 def calculate_accuracy(threshold, dist, actual_issame):
+    # np.less: Return the truth value of (x1 < x2) element-wise
     predict_issame = np.less(dist, threshold)
+
+    # np.logical_and(1,1)=True, others False
     tp = np.sum(np.logical_and(predict_issame, actual_issame))
     fp = np.sum(np.logical_and(predict_issame, np.logical_not(actual_issame)))
+    # 下面这两个应该是弄反了(命名弄反了,但是计算是没问题的,不影响最终结果)
     tn = np.sum(np.logical_and(np.logical_not(predict_issame), np.logical_not(actual_issame)))
     fn = np.sum(np.logical_and(np.logical_not(predict_issame), actual_issame))
 
@@ -502,7 +508,7 @@ def calculate_accuracy(threshold, dist, actual_issame):
     acc = float(tp + tn) / dist.size
     return tpr, fpr, acc
 
-
+# far_target=1e-3
 def calculate_val(thresholds, embeddings1, embeddings2, actual_issame, far_target, nrof_folds=10, distance_metric=0,
                   subtract_mean=False):
     assert (embeddings1.shape[0] == embeddings2.shape[0])
@@ -539,7 +545,6 @@ def calculate_val(thresholds, embeddings1, embeddings2, actual_issame, far_targe
     far_mean = np.mean(far)
     val_std = np.std(val)
     return val_mean, val_std, far_mean
-
 
 def calculate_val_far(threshold, dist, actual_issame):
     predict_issame = np.less(dist, threshold)

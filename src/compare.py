@@ -14,6 +14,13 @@ import argparse
 import facenet
 import align.detect_face
 
+"""
+解析传递进来的参数,把参数中指定的图片进行对齐 
+    -> 加载模型
+        -> 从模型中获取要用到的tensor
+            -> 计算embeddings
+                -> 计算各个embeddings的距离
+"""
 def main(args):
 
     # args.image_files是图片的路径
@@ -25,7 +32,7 @@ def main(args):
       
             # Load the model
             facenet.load_model(args.model)
-    
+
             # Get input and output tensors
             images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
             embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
