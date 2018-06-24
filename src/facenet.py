@@ -499,7 +499,6 @@ def calculate_accuracy(threshold, dist, actual_issame):
     # np.logical_and(1,1)=True, others False
     tp = np.sum(np.logical_and(predict_issame, actual_issame))
     fp = np.sum(np.logical_and(predict_issame, np.logical_not(actual_issame)))
-    # 下面这两个应该是弄反了(命名弄反了,但是计算是没问题的,不影响最终结果)
     tn = np.sum(np.logical_and(np.logical_not(predict_issame), np.logical_not(actual_issame)))
     fn = np.sum(np.logical_and(np.logical_not(predict_issame), actual_issame))
 
