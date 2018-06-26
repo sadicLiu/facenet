@@ -16,6 +16,9 @@ import pickle
 from sklearn.svm import SVC
 
 
+"""
+这里面数据集的划分是把某个人的所有图片划分成了两部分,一部分训练,一部分测试
+"""
 def main(args):
     with tf.Graph().as_default():
 

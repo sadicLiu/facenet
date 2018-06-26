@@ -220,6 +220,7 @@
 
     1. Include face detection in a face detection and classification pipe line
     2. Use a threshold for the classification probability to find unknown people instead of just using the class with the highest probability
+    3. Using a frozen graph significantly speeds up the loading of the model.
 
 ## Questions
 
@@ -228,8 +229,6 @@
     Q: 这个训练好的模型是如何应用到其他数据集的(看evaluation的代码)
     A: 直接用训练好的模型提取特征 -> 调用 `lfw.evaluate` -> 内部调用 `facenet.calculate_roc` 和 `facenet.calculate_val`
     ```
-
-
 - 02
     ```
     Q: 代码中使用pretrained model的过程
@@ -237,18 +236,14 @@
     ```
 - 03
     ```
-    Q: 1:1 1:N 的过程
-    A: 牛脸识别中只用到了1:1,1:N是先把模型训练好,然后每张图片提取特征并保存,进行识别时,提取要识别的图像特征,计算这个特征和已经存储的所有特征的欧氏距离
+    Q: compare的阈值是如何确定的,两个embeding距离是多少认为是同一个人?
+    A: 可能的办法: 每头牛取三张图片(正脸+两个侧脸),提取特征,保存这三个特征向量,计算这三张图片的特征向量的欧氏距离,保存那个最大的距离值,用这种方法算出所有牛的最大距离值,求max(d1, d2, ..., dn),用这个值作为阈值.当有一张新来的图片,先算图片的特征向量,然后算这个特征向量和所有特征向量的距离,取距离最小值,如果这个最小值大于阈值,则新来的图片不在特征库中,若小于阈值,则新来的图片与距离最小的类属于同一类
     ```
 
 ## TODO
 
-1. 在lfw数据集上验证人脸识别模型
-2. 找一下牛脸数据和模型,同样用pairs模型验证一下
-3. FFmpeg了解一下
-
-4. **两个验证的数据集准确率差不多**,但是validation rate差很多, 为什么
-5. 人脸的验证数据模型之前没见过,牛脸的验证数据模型之前都见过
-
-**compare的阈值是如何确定的,两个embeding距离是多少认为是同一个人?**
-可能的办法: 每头牛取三张图片(正脸+两个侧脸),提取特征,保存这三个特征向量,计算这三张图片的特征向量的欧氏距离,保存那个最大的距离值,用这种方法算出所有牛的最大距离值,求max(d1, d2, ..., dn),用这个值作为阈值.当有一张新来的图片,先算图片的特征向量,然后算这个特征向量和所有特征向量的距离,取距离最小值,如果这个最小值大于阈值,则新来的图片不在特征库中,若小于阈值,则新来的图片与距离最小的类属于同一类
+- [x] 在lfw数据集上验证人脸识别模型
+- [x] 找一下牛脸数据和模型,同样用pairs模型验证一下
+- [x] FFmpeg了解一下
+- [x] 两个验证的数据集准确率差不多,但是validation rate差很多,为什么
+- [x] 人脸的验证数据模型之前没见过,牛脸的验证数据模型之前都见过
