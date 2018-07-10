@@ -1,3 +1,4 @@
+# coding=utf-8
 """Training a face recognizer with TensorFlow using softmax cross entropy loss
 """
 
@@ -35,13 +36,17 @@ save_variables_and_metagraph: 保存模型,每个epoch结束之后调用一次
 filter_dataset、find_threshold: 数据预处理时的一个操作,没细读,这个作者训练模型时候没用,args.filter_filename
 """
 
+
 def main(args):
-    ### 数据预处理,路径问题等
+    # =========================================================================== #
+    # 数据预处理,路径问题等
+    # =========================================================================== #
     network = importlib.import_module(args.model_def)
     image_size = (args.image_size, args.image_size)
 
     subdir = datetime.strftime(datetime.now(), '%Y%m%d-%H%M%S')  # '20180614-100359'
     log_dir = os.path.join(os.path.expanduser(args.logs_base_dir), subdir)  # 本地保存log的路径
+    val_log_dir = log_dir  # 本地保存validation result的路径
     if not os.path.isdir(log_dir):  # Create the log directory if it doesn't exist
         os.makedirs(log_dir)
     model_dir = os.path.join(os.path.expanduser(args.models_base_dir), subdir)  # 本地保存model的路径,最后一层目录用上面生成的日期命名
@@ -66,7 +71,8 @@ def main(args):
         dataset = filter_dataset(dataset, os.path.expanduser(args.filter_filename),
                                  args.filter_percentile, args.filter_min_nrof_images_per_class)
 
-    # validation_set_split_ratio default=0.0, 也先不管
+    # validation_set_split_ratio default=0.0, 如果需要验证操作的话设置这个
+    # 划分验证集有两种方式:按类划分和按图片划分(默认)
     if args.validation_set_split_ratio > 0.0:
         train_set, val_set = facenet.split_dataset(dataset, args.validation_set_split_ratio,
                                                    args.min_nrof_val_images_per_class, 'SPLIT_IMAGES')
@@ -94,10 +100,14 @@ def main(args):
         # lfw_paths里的每个值都是一个元组(path0, path1), actual_issame里对应的是这个元组是正样本还是副样本
         lfw_paths, actual_issame = lfw.get_paths(os.path.expanduser(args.lfw_dir), pairs)
 
-    ### 下面开始处理TensorFlow相关的东西
+    # =========================================================================== #
+    # 下面开始处理TensorFlow相关的东西
+    # =========================================================================== #
     with tf.Graph().as_default():
 
-        ### Input pipeline
+        # =========================================================================== #
+        # Input pipeline
+        # =========================================================================== #
         tf.set_random_seed(args.seed)
         global_step = tf.Variable(0, trainable=False)
 
@@ -158,7 +168,7 @@ def main(args):
                                       weights_regularizer=slim.l2_regularizer(args.weight_decay),
                                       scope='Logits', reuse=False)
 
-        # axis=1, 是把每行进行normalize, 每行是一个样本, 128维的向量
+        # axis=1, 是把每行进行normalize, 每行是一个样本, 128维(或512维)的向量
         embeddings = tf.nn.l2_normalize(prelogits, 1, 1e-10, name='embeddings')
 
         # Norm for the prelogits
@@ -196,7 +206,7 @@ def main(args):
                                  learning_rate, args.moving_average_decay, tf.global_variables(), args.log_histograms)
 
         # Create a saver
-        saver = tf.train.Saver(tf.trainable_variables(), max_to_keep=3)
+        saver = tf.train.Saver(tf.trainable_variables(), max_to_keep=20)
 
         # Build the summary operation based on the TF collection of Summaries.
         summary_op = tf.summary.merge_all()
@@ -251,6 +261,10 @@ def main(args):
                 step = sess.run(global_step, feed_dict=None)  # step = 0
                 ### Train for one epoch
                 t = time.time()
+
+                # =========================================================================== #
+                # 一次训练的过程,学习率是在这里设置的,如果参数中的学习率小于0,就用调度文件中的学习率
+                # =========================================================================== #
                 cont = train(args, sess, epoch, image_list, label_list, index_dequeue_op, enqueue_op,
                              image_paths_placeholder, labels_placeholder,
                              learning_rate_placeholder, phase_train_placeholder, batch_size_placeholder,
@@ -271,15 +285,17 @@ def main(args):
                 if len(val_image_list) > 0 and \
                         ((
                                  epoch - 1) % args.validate_every_n_epochs == args.validate_every_n_epochs - 1 or epoch == args.max_nrof_epochs):
+                    # =========================================================================== #
                     # 如果验证集不为空 并且 到了设置的每n个epoch验证一次或者到了最后一个epoch, 则进行一次验证
+                    # =========================================================================== #
                     validate(args, sess, epoch, val_image_list, val_label_list, enqueue_op, image_paths_placeholder,
                              labels_placeholder, control_placeholder,
                              phase_train_placeholder, batch_size_placeholder,
                              stat, total_loss, regularization_losses, cross_entropy_mean, accuracy,
-                             args.validate_every_n_epochs, args.use_fixed_image_standardization)
+                             args.validate_every_n_epochs, args.use_fixed_image_standardization, val_log_dir)
                 stat['time_validate'][epoch - 1] = time.time() - t
 
-                # Save variables and the metagraph if it doesn't exist already
+                # Save variables and the metagraph if it doesn't exist
                 save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, epoch)
 
                 ### Evaluate on LFW
@@ -309,6 +325,7 @@ def find_threshold(var, percentile):
     # plt.plot(bin_centers, cdf)
     threshold = np.interp(percentile * 0.01, cdf, bin_centers)
     return threshold
+
 
 # 没用到
 def filter_dataset(dataset, data_filename, percentile, min_nrof_images_per_class):
@@ -414,7 +431,7 @@ def validate(args, sess, epoch, image_list, label_list, enqueue_op, image_paths_
              control_placeholder,
              phase_train_placeholder, batch_size_placeholder,
              stat, loss, regularization_losses, cross_entropy_mean, accuracy, validate_every_n_epochs,
-             use_fixed_image_standardization):
+             use_fixed_image_standardization, val_log_dir):
     print('Running forward pass on validation set')
 
     nrof_batches = len(label_list) // args.lfw_batch_size
@@ -452,6 +469,9 @@ def validate(args, sess, epoch, image_list, label_list, enqueue_op, image_paths_
 
     print('Validation Epoch: %d\tTime %.3f\tLoss %2.3f\tXent %2.3f\tAccuracy %2.3f' %
           (epoch, duration, np.mean(loss_array), np.mean(xent_array), np.mean(accuracy_array)))
+    with open(os.path.join(val_log_dir, 'val_result.txt'), 'at') as f:
+        f.write('Validation Epoch: %d\tTime %.3f\tLoss %2.3f\tXent %2.3f\tAccuracy %2.3f' %
+                (epoch, duration, np.mean(loss_array), np.mean(xent_array), np.mean(accuracy_array)))
 
 
 def evaluate(sess, enqueue_op, image_paths_placeholder, labels_placeholder, phase_train_placeholder,
@@ -532,7 +552,10 @@ def save_variables_and_metagraph(sess, saver, summary_writer, model_dir, model_n
     print('Saving variables')
     start_time = time.time()
     checkpoint_path = os.path.join(model_dir, 'model-%s.ckpt' % model_name)
-    saver.save(sess, checkpoint_path, global_step=step, write_meta_graph=False)
+
+    # 每5个epoch保存一次
+    if (step - 1) % 5 == 0:
+        saver.save(sess, checkpoint_path, global_step=step, write_meta_graph=False)
     save_time_variables = time.time() - start_time
     print('Variables saved in %.2f seconds' % save_time_variables)
     metagraph_filename = os.path.join(model_dir, 'model-%s.meta' % model_name)
@@ -568,7 +591,7 @@ def parse_arguments(argv):
                         help='Model definition. Points to a module containing the definition of the inference graph.',
                         default='models.inception_resnet_v1')
     parser.add_argument('--max_nrof_epochs', type=int,
-                        help='Number of epochs to run.', default=500)
+                        help='Number of epochs to run.', default=100)
     parser.add_argument('--batch_size', type=int,
                         help='Number of images to process in a batch.', default=90)
     parser.add_argument('--image_size', type=int,

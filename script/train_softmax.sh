@@ -14,10 +14,7 @@ python ../src/train_softmax.py \
 --learning_rate_schedule_file ../data/learning_rate_schedule_classifier_vggface2.txt \
 --weight_decay 5e-4 \
 --embedding_size 512 \
---validation_set_split_ratio 0.01 \
---validate_every_n_epochs 5
+--validation_set_split_ratio 0.1 \
+--validate_every_n_epochs 1
+--pretrained_model /wls/majin/models/cowface/facenet/20180402-114759/model-20180402-114759.ckpt-275 \
 
-# --lfw_dir ~/datasets/lfw/lfw_mtcnnalign_160/ \
-# --lfw_distance_metric 1 \
-# --lfw_use_flipped_images \
-# --lfw_subtract_mean \
