@@ -179,6 +179,12 @@
     1. If the parameter lfw_dir is set to point to a the base directory of the LFW dataset the model is evaluated on LFW once every 1000 batches. If no evaluation on LFW is desired during training it is fine to leave the lfw_dir parameter empty.
     2. The training will continue until the max_nrof_epochs is reached or training is terminated from the learning rate schedule file.
 
+## Triplet loss training
+
+    ```
+    python src/train_tripletloss.py --logs_base_dir ~/logs/facenet/ --models_base_dir ~/models/facenet/ --data_dir ~/datasets/casia/casia_maxpy_mtcnnalign_182_160 --image_size 160 --model_def models.inception_resnet_v1 --lfw_dir ~/datasets/lfw/lfw_mtcnnalign_160 --optimizer RMSPROP --learning_rate 0.01 --weight_decay 1e-4 --max_nrof_epochs 500
+    ```
+
 ## Train a classifier on LFW
 
 - Start training
