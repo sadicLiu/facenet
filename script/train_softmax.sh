@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 python ../src/train_softmax.py \
 --logs_base_dir ~/logs/cowface/ \
 --models_base_dir ~/models/cowface/ \

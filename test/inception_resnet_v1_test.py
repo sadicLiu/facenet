@@ -1,3 +1,4 @@
+#coding=utf-8
 """Contains the definition of the Inception Resnet V1 architecture.
 As described in http://arxiv.org/abs/1602.07261.
   Inception-v4, Inception-ResNet and the Impact of Residual Connections
@@ -219,7 +220,7 @@ def inception_resnet_v1(inputs, is_training=True,
                 # 5 x Inception-Resnet-C
                 net = slim.repeat(net, 5, block8, scale=0.20)
                 end_points['Mixed_8a'] = net
-               
+
                 net = block8(net, activation_fn=None)
                 end_points['Mixed_8b'] = net
 
@@ -230,7 +231,7 @@ def inception_resnet_v1(inputs, is_training=True,
                     # pylint: disable=no-member
                     net = slim.avg_pool2d(net, net.get_shape()[1:3], padding='VALID',
                                           scope='AvgPool_1a_8x8')
-                    print("after avg pool shape: ", net.get_shape)  # (None, 1, 1, 1792)
+                    print("after avg pool shape: ", net.get_shape())  # (None, 1, 1, 1792)
 
                     net = slim.flatten(net)
                     print("after flatten shape: ", net.get_shape()) # (None, 1792)
@@ -244,7 +245,9 @@ def inception_resnet_v1(inputs, is_training=True,
                                            scope='Bottleneck', reuse=False)
                 print("final logits shape: ", net.get_shape())  # (None, 128)
 
-
+                # =========================================================================== #
+                # Self added
+                # =========================================================================== #
                 logits = slim.fully_connected(net, 1024, activation_fn=None,
                                               weights_initializer=slim.initializers.xavier_initializer(),
                                               weights_regularizer=slim.l2_regularizer(0.0),
@@ -254,6 +257,9 @@ def inception_resnet_v1(inputs, is_training=True,
                 # axis=1, 是把每行进行normalize, 每行是一个样本
                 embeddings = tf.nn.l2_normalize(net, 1, 1e-10, name='embeddings')
                 print("embeddings shape: ", embeddings.get_shape()) # (None, 128)
+
+                # anchor, positive, negative = tf.unstack(tf.reshape(embeddings, [-1, 3, 128]), 3, 1)
+                # print("anchor shape: ", anchor)
 
                 eps = 1e-4
                 prelogits_norm = tf.reduce_mean(tf.norm(tf.abs(net) + eps, ord=1.0, axis=1))

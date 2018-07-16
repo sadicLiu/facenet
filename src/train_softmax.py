@@ -38,6 +38,9 @@ filter_dataset、find_threshold: 数据预处理时的一个操作,没细读,这
 
 
 def main(args):
+    print('args used to train the model:')
+    print(args)
+
     # =========================================================================== #
     # 数据预处理,路径问题等
     # =========================================================================== #
@@ -220,6 +223,9 @@ def main(args):
         coord = tf.train.Coordinator()
         tf.train.start_queue_runners(coord=coord, sess=sess)
 
+        # =========================================================================== #
+        # Start training
+        # =========================================================================== #
         with sess.as_default():
 
             if pretrained_model:

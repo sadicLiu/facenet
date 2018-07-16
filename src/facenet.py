@@ -163,7 +163,6 @@ def _add_loss_summaries(total_loss):
     return loss_averages_op
 
 
-# Build train op
 def train(total_loss, global_step, optimizer, learning_rate, moving_average_decay, update_gradient_vars,
           log_histograms=True):
     # Generate moving averages of all losses and associated summaries.
@@ -209,6 +208,7 @@ def train(total_loss, global_step, optimizer, learning_rate, moving_average_deca
         train_op = tf.no_op(name='train')
 
     return train_op
+# Build train op
 
 
 def prewhiten(x):
