@@ -17,6 +17,7 @@ python ../src/train_softmax.py \
 --weight_decay 5e-4 \
 --embedding_size 512 \
 --validation_set_split_ratio 0.1 \
---validate_every_n_epochs 1
+--validate_every_n_epochs 1 \
 --pretrained_model /wls/majin/models/cowface/facenet/20180402-114759/model-20180402-114759.ckpt-275 \
+
 
