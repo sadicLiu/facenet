@@ -1,5 +1,14 @@
 # 实验记录
 
+- [实验记录](#%E5%AE%9E%E9%AA%8C%E8%AE%B0%E5%BD%95)
+  - [用于测试的pairs.txt的生成问题](#%E7%94%A8%E4%BA%8E%E6%B5%8B%E8%AF%95%E7%9A%84pairstxt%E7%9A%84%E7%94%9F%E6%88%90%E9%97%AE%E9%A2%98)
+  - [数据集划分问题](#%E6%95%B0%E6%8D%AE%E9%9B%86%E5%88%92%E5%88%86%E9%97%AE%E9%A2%98)
+  - [实验一(fine tune with triplet loss)](#%E5%AE%9E%E9%AA%8C%E4%B8%80fine-tune-with-triplet-loss)
+  - [实验二(train from scratch with triplet loss)](#%E5%AE%9E%E9%AA%8C%E4%BA%8Ctrain-from-scratch-with-triplet-loss)
+  - [实验三(模型测试)](#%E5%AE%9E%E9%AA%8C%E4%B8%89%E6%A8%A1%E5%9E%8B%E6%B5%8B%E8%AF%95)
+  - [实验四(train from scratch with softmax)](#%E5%AE%9E%E9%AA%8C%E5%9B%9Btrain-from-scratch-with-softmax)
+  - [实验五](#%E5%AE%9E%E9%AA%8C%E4%BA%94)
+  - [实验六](#%E5%AE%9E%E9%AA%8C%E5%85%AD)
 
 ## 用于测试的pairs.txt的生成问题
 
@@ -11,35 +20,45 @@
     2. negative pairs: 同上
 - 目前使用的测试数据是2000个pair的图片
 
-
 ## 数据集划分问题
 
 - trainset: 140 class
 - testset: 40 class
 
+## 实验一(fine tune with triplet loss)
 
-## 实验一
+- 使用 `pretrained model` + `triplet loss` 进行训练，得到的准确率最高是88%+， 此时的loss在**0.028**左右
 
-> 使用训练好的人脸模型进行fine tune，每5个epoch保存一次模型，共100个epoch，结束后分别测试每个保存模型的准确率，判断模型大概在什么时候收敛
-
-- 实验目的  
-  确定模型微调时收敛时间
-
-- 实验结果  
-  | epoch  | accuracy |
-  | ------ | -------- |
-  | epoch1 | -        |
-
-
-## 实验二
+## 实验二(train from scratch with triplet loss)
 
 > 不使用fine tune，从头开始训练，看看准确率怎么样，模型是否能收敛
 
-- 实验目的  
-  确定fine tune的过程是否正确，因为现在做fine tune的时候训练结束时总是提示 `--pretrained_model` 不是可以识别的命令
+- 训练了**80**个epoch，准确率**88%+**，此时的loss是**0.62**左右
+- 模型此时并没有完全收敛，loss还有很大的下降空间，使用作者提供的模型进行fine tune时，虽然准确率和这个模型差不多，但是那个loss只有**0.028**
 
+## 实验三(模型测试)
 
-## 实验三
+> 用生成的最新的pairs.txt和马进之前训练好的模型进行测试
+
+- Model1
+  - dir: /wls/majin/models/facenet/20180405-122334
+  - script: /wls/majin/develop/one_in_all/cowface/script/validate_cowface_old_model.sh
+  - Accuracy: 0.87400+-0.01814
+  - Validation rate: 0.29172+=0.04645
+  - AUC: 0.953
+
+- Model2
+  - dir: /wls/majin/models/facenet/20180416-174504
+  - script: /wls/majin/develop/one_in_all/cowface/script/validate_cowface_old_model.sh
+  - Accuracy: 0.85450+-0.01005
+  - Validation rate: 0.21582+-0.04406
+  - AUC: 0.938
+
+## 实验四(train from scratch with softmax)
+
+> 使用softmax从头开始训练
+
+## 实验五
 
 > 这个要等到第二批数据处理好了再开始做
 
@@ -71,8 +90,7 @@
   | s1+s2+s3    | -        |
   | s1+s2+s3+s4 | -        |
 
-
-## 实验四
+## 实验六
 
 > 使用softmax loss在训练集上进行训练，等模型收敛时，锁定模型中除了分类层的所有参数，并在模型最后添加triplet loss继续训练，只更新模型的最后一层，用这个模型**在测试集上进行训练**，并用训练好的模型在测试集上进行测试
 
@@ -83,22 +101,3 @@
   这种方法的好处是训练用的pairs是在测试集上选出来的，相当于是使训练好的模型在测试集合上进行了优化，当测试集中添加或者删除少量样本时，是不影响使用三元组损失学到的这个仿射变换的
 
 - 实验结果
-
-
-## 实验五
-
-> 用生成的最新的pairs.txt和马进之前训练好的模型进行测试
-
-- Model1
-    - dir: /wls/majin/models/facenet/20180405-122334
-    - script: /wls/majin/develop/one_in_all/cowface/script/validate_cowface_old_model.sh
-    - Accuracy: 0.87400+-0.01814
-    - Validation rate: 0.29172+=0.04645
-    - AUC: 0.953
-
-- Model2
-  - dir: /wls/majin/models/facenet/20180416-174504
-  - script: /wls/majin/develop/one_in_all/cowface/script/validate_cowface_old_model.sh
-  - Accuracy: 0.85450+-0.01005
-  - Validation rate: 0.21582+-0.04406
-  - AUC: 0.938
