@@ -1,3 +1,4 @@
+#coding=utf-8
 """Performs face alignment and calculates L2 distance between the embeddings of images."""
 
 from __future__ import absolute_import

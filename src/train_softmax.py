@@ -175,6 +175,8 @@ def main(args):
                                       weights_initializer=slim.initializers.xavier_initializer(),
                                       weights_regularizer=slim.l2_regularizer(args.weight_decay),
                                       scope='Logits', reuse=False)
+        # 这步操作之后在测试时就可以拿到这个值了
+        logits = tf.identity(logits, name='logits')
 
         # axis=1, 是把每行进行normalize, 每行是一个样本, 128维(或512维)的向量
         embeddings = tf.nn.l2_normalize(prelogits, 1, 1e-10, name='embeddings')

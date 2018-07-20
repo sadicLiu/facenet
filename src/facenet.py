@@ -1,3 +1,4 @@
+#coding=utf-8
 """Functions for building the face recognition network.
 """
 
