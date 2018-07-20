@@ -48,7 +48,9 @@ def main(args):
     image_size = (args.image_size, args.image_size)
 
     subdir = datetime.strftime(datetime.now(), '%Y%m%d-%H%M%S')  # '20180614-100359'
+    subdir += args.dir_postfix
     log_dir = os.path.join(os.path.expanduser(args.logs_base_dir), subdir)  # 本地保存log的路径
+    log_dir += args.dir_postfix
     val_log_dir = log_dir  # 本地保存validation result的路径
     if not os.path.isdir(log_dir):  # Create the log directory if it doesn't exist
         os.makedirs(log_dir)
@@ -682,6 +684,10 @@ def parse_arguments(argv):
                         action='store_true')
     parser.add_argument('--lfw_subtract_mean',
                         help='Subtract feature mean before calculating distance.', action='store_true')
+
+    # Parameters used for debug
+    parser.add_argument('dir_postfix', type=str,
+                        help='Postfix added to model and log directory.', default='')
     return parser.parse_args(argv)
 
 

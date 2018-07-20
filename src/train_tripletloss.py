@@ -1,3 +1,4 @@
+#coding=utf-8
 """Training a face recognizer with TensorFlow based on the FaceNet paper
 FaceNet: A Unified Embedding for Face Recognition and Clustering: http://arxiv.org/abs/1503.03832
 """
@@ -22,8 +23,6 @@ from tensorflow.python.ops import data_flow_ops
 
 from six.moves import xrange  # @UnresolvedImport
 
-MODEL_DIR_FLAG = ''  # Append some extra string to model dir, just for test convinence
-
 
 def main(args):
     print('args used to train the model:')
@@ -36,8 +35,9 @@ def main(args):
     network = importlib.import_module(args.model_def)
 
     subdir = datetime.strftime(datetime.now(), '%Y%m%d-%H%M%S')
-    subdir += '_' + MODEL_DIR_FLAG
+    subdir += args.dir_postfix
     log_dir = os.path.join(os.path.expanduser(args.logs_base_dir), subdir)
+    log_dir += args.dir_postfix
     if not os.path.isdir(log_dir):  # Create the log directory if it doesn't exist
         os.makedirs(log_dir)
     model_dir = os.path.join(os.path.expanduser(args.models_base_dir), subdir)
@@ -499,6 +499,10 @@ def parse_arguments(argv):
                         help='Path to the data directory containing aligned face patches.', default='')
     parser.add_argument('--lfw_nrof_folds', type=int,
                         help='Number of folds to use for cross validation. Mainly used for testing.', default=10)
+
+    # Parameters used for debug
+    parser.add_argument('--dir_postfix', type=str,
+                        help='The postfix added to training model and log dir.', default='')
     return parser.parse_args(argv)
 
 
