@@ -688,7 +688,7 @@ def parse_arguments(argv):
                         help='Subtract feature mean before calculating distance.', action='store_true')
 
     # Parameters used for debug
-    parser.add_argument('dir_postfix', type=str,
+    parser.add_argument('--dir_postfix', type=str,
                         help='Postfix added to model and log directory.', default='')
     return parser.parse_args(argv)
 
