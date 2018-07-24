@@ -9,6 +9,7 @@ import argparse
 import copy
 import math
 import os
+import pickle
 import sys
 
 import numpy as np
@@ -23,9 +24,11 @@ def main(args):
 
         with tf.Session() as sess:
 
+            emb_file = 'embeddings.pkl'
+
             # Extract embeddings in trainset
             if (args.mode == 'EXTRACT'):
-                np.random.seed(seed=args.seed)
+                np.random.seed(seed=666)
                 dataset = facenet.get_dataset(args.data_dir)
 
                 # Check that there are at least one training image per class
@@ -60,11 +63,18 @@ def main(args):
                     feed_dict = {images_placeholder: images, phase_train_placeholder: False}
                     emb_array[start_index:end_index, :] = sess.run(embeddings, feed_dict=feed_dict)
 
-                print(emb_array)
-                print(labels)
+                with open(emb_file, 'wb') as outfile:
+                    pickle.dump((emb_array, labels, paths), outfile)
+                print('Embeddings save to file "%s"' % emb_file)
             # Perform compare task
             else:
+                # Load embeddings
+                print('Loading embeddings')
+                with open(emb_file, 'rb') as infile:
+                    emb_array, labels, paths = pickle.load(infile)
+
                 # Load the model
+                print('Loading feature extraction model')
                 facenet.load_model(args.model)
                 images = load_and_align_data(args.image_files, args.image_size)
 
@@ -81,9 +91,19 @@ def main(args):
 
                 print('Images and embeddings:')
                 for i in range(nrof_images):
-                    print(args.image_files[i])
-                    print(emb[i])
+                    min_result = min_distance(emb[i], emb_array)
+                    min_result_label = labels[min_result]
+                    min_result_path = paths[min_result]
+                    print('Compared image: %s, compared result: %s, label: %s, path: %s'
+                          % (args.image_files[i], min_result, min_result_label, min_result_path))
 
+
+def min_distance(embedding, emb_array):
+    """Calculate min distance of the embedding in emb_array"""
+    diff = np.subtract(emb_array, embedding)
+    distance = np.sum(np.square(diff), 1)
+    min = np.argmin(distance)
+    return min
 
 
 def load_and_align_data(image_paths, image_size):
@@ -110,7 +130,7 @@ def parse_arguments(argv):
                         help='Could be either a directory containing the meta_file and ckpt_file or a model protobuf (.pb) file')
     parser.add_argument('--data_dir', type=str,
                         help='If using the EXTRACT mode, then data_dir should supplied.')
-    parser.add_argument('image_files', type=str, nargs='+', help='Images to compare')
+    parser.add_argument('--image_files', type=str, nargs='+', help='Images to compare')
     parser.add_argument('--batch_size', type=int,
                         help='Number of images to process in a batch.', default=16)
     parser.add_argument('--image_size', type=int,
