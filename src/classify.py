@@ -1,5 +1,5 @@
 # coding=utf-8
-"""Perform classify task on given image(only one image)."""
+"""Perform classify task on given images."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -19,7 +19,7 @@ import facenet
 
 def main(args):
     # args.image_files是图片的路径
-    images = load_and_align_data(args.image_file, args.image_size)
+    images = load_and_align_data(args.class_path, args.image_size)
 
     with tf.Graph().as_default():
          with tf.Session() as sess:
@@ -34,18 +34,20 @@ def main(args):
             # Run forward pass to calculate embeddings
             feed_dict = {images_placeholder: images, phase_train_placeholder: False}
             logits_vec = sess.run(logits, feed_dict=feed_dict)
-            result = np.argmax(logits_vec) + 1
-            print("The class number of current image: ", result)
+            result = np.argmax(logits_vec, axis=1) + 1
+            print("Result: ", result)
 
 
-def load_and_align_data(image_paths, image_size):
-    tmp_image_paths = copy.copy(image_paths)
+def load_and_align_data(class_path, image_size):
     img_list = []
-    for image in tmp_image_paths:
-        img = misc.imread(os.path.expanduser(image), mode='RGB')
-        aligned = misc.imresize(img, (image_size, image_size), interp='bilinear')
+
+    imgs = os.listdir(class_path)
+    for img in imgs:
+        a_img = misc.imread(os.path.join(class_path, img), mode='RGB')
+        aligned = misc.imresize(a_img, (image_size, image_size), interp='bilinear')
         prewhitened = facenet.prewhiten(aligned)
         img_list.append(prewhitened)
+
     images = np.stack(img_list)
     return images
 
@@ -55,7 +57,7 @@ def parse_arguments(argv):
 
     parser.add_argument('model', type=str,
                         help='Could be either a directory containing the meta_file and ckpt_file or a model protobuf (.pb) file')
-    parser.add_argument('image_file', type=str, help='Image to classify')
+    parser.add_argument('class_path', type=str, help='Images to classify')
     parser.add_argument('--image_size', type=int,
                         help='Image size (height, width) in pixels.', default=160)
     return parser.parse_args(argv)

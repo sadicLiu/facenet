@@ -1,3 +1,4 @@
+# coding=utf-8
 """An example of how to use your own dataset to train a classifier that recognizes people.
 """
 
@@ -15,10 +16,10 @@ import math
 import pickle
 from sklearn.svm import SVC
 
+"""这里面数据集的划分是把某个人的所有图片划分成了两部分,一部分训练,一部分测试
+"""
 
-"""
-这里面数据集的划分是把某个人的所有图片划分成了两部分,一部分训练,一部分测试
-"""
+
 def main(args):
     with tf.Graph().as_default():
 
@@ -68,6 +69,10 @@ def main(args):
                 images = facenet.load_data(paths_batch, False, False, args.image_size)
                 feed_dict = {images_placeholder: images, phase_train_placeholder: False}
                 emb_array[start_index:end_index, :] = sess.run(embeddings, feed_dict=feed_dict)
+                
+            # =========================================================================== #
+            # 截止到这里，所有的embeddings都保存在emb_array里了
+            # =========================================================================== #
 
             classifier_filename_exp = os.path.expanduser(args.classifier_filename)
 
@@ -124,7 +129,7 @@ def parse_arguments(argv):
                         help='Indicates if a new classifier should be trained or a classification ' +
                              'model should be used for classification', default='CLASSIFY')
     parser.add_argument('data_dir', type=str,
-                        help='Path to the data directory containing aligned LFW face patches.')
+                        help='Path to the data directory containing aligned face patches.')
     parser.add_argument('model', type=str,
                         help='Could be either a directory containing the meta_file and ckpt_file or a model protobuf (.pb) file')
     parser.add_argument('classifier_filename',
@@ -137,16 +142,16 @@ def parse_arguments(argv):
     parser.add_argument('--test_data_dir', type=str,
                         help='Path to the test data directory containing aligned images used for testing.')
     parser.add_argument('--batch_size', type=int,
-                        help='Number of images to process in a batch.', default=90)
+                        help='Number of images to process in a batch.', default=16)
     parser.add_argument('--image_size', type=int,
                         help='Image size (height, width) in pixels.', default=160)
     parser.add_argument('--seed', type=int,
                         help='Random seed.', default=666)
     parser.add_argument('--min_nrof_images_per_class', type=int,
-                        help='Only include classes with at least this number of images in the dataset', default=20)
+                        help='Only include classes with at least this number of images in the dataset', default=8)
     parser.add_argument('--nrof_train_images_per_class', type=int,
                         help='Use this number of images from each class for training and the rest for testing',
-                        default=10)
+                        default=6)
 
     return parser.parse_args(argv)
 
