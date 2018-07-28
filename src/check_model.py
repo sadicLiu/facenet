@@ -1,3 +1,5 @@
+"""Print all variables saved in model checkpoint.
+"""
 import os
 from tensorflow.python import pywrap_tensorflow
 

@@ -1,5 +1,6 @@
 # coding=utf-8
-"""Perform classification task using embeddings"""
+"""Extract all embeddings in given dataset(EXTRACT mode) or perform classification task using embeddings.
+"""
 
 from __future__ import absolute_import
 from __future__ import division
