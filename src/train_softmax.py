@@ -237,7 +237,17 @@ def main(args):
 
             if pretrained_model:
                 print('Restoring pretrained model: %s' % pretrained_model)
-                saver.restore(sess, pretrained_model)
+                # saver.restore(sess, pretrained_model)
+                if args.checkpoint_exclude_scopes:
+                    exclusions = [args.checkpoint_exclude_scopes.split(',')]
+                else:
+                    exclusions = []
+                # load from pre-trained model
+                tf.contrib.framework.assign_from_checkpoint_fn(
+                    pretrained_model,
+                    [var for var in tf.trainable_variables()
+                     if all(not var.op.name.startswith(exclusion) for exclusion in exclusions)],
+                    ignore_missing_vars=args.ignore_missing_vars)(sess)
 
             # Training and validation loop
             print('Running training')
@@ -690,6 +700,11 @@ def parse_arguments(argv):
     # Parameters used for debug
     parser.add_argument('--dir_postfix', type=str,
                         help='Postfix added to model and log directory.', default='')
+    # Fine tuning test
+    parser.add_argument('--ignore_missing_vars', action='store_true',
+                        help='When restoring a checkpoint would ignore missing variables.')
+    parser.add_argument('--checkpoint_exclude_scopes', type=str,
+                        help='Comma-separated list of scopes of variables to exclude when restoring from a checkpoint.')
     return parser.parse_args(argv)
 
 
