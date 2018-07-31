@@ -130,7 +130,7 @@ def parse_arguments(argv):
     parser.add_argument('model', type=str,
                         help='Could be either a directory containing the meta_file and ckpt_file or a model protobuf (.pb) file')
     parser.add_argument('--data_dir', type=str,
-                        help='If using the EXTRACT mode, then data_dir should supplied.')
+                        help='If using the EXTRACT mode, then data_dir should be provided.')
     parser.add_argument('--image_files', type=str, nargs='+', help='Images to compare')
     parser.add_argument('--batch_size', type=int,
                         help='Number of images to process in a batch.', default=16)

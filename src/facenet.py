@@ -103,9 +103,9 @@ def create_input_pipeline(input_queue, image_size, nrof_preprocess_threads, batc
         for filename in tf.unstack(filenames):
             file_contents = tf.read_file(filename)
             image = tf.image.decode_image(file_contents, 3)
-            image = tf.cond(get_control_flag(control[0], RANDOM_ROTATE),
-                            lambda: tf.py_func(random_rotate_image, [image], tf.uint8),
-                            lambda: tf.identity(image))
+            # image = tf.cond(get_control_flag(control[0], RANDOM_ROTATE),  # tf.py_func在tf serving中不能用，另外这个选项训练时没用到
+            #                 lambda: tf.py_func(random_rotate_image, [image], tf.uint8),
+            #                 lambda: tf.identity(image))
             image = tf.cond(get_control_flag(control[0], RANDOM_CROP),
                             lambda: tf.random_crop(image, image_size + (3,)),
                             lambda: tf.image.resize_image_with_crop_or_pad(image, image_size[0], image_size[1]))
